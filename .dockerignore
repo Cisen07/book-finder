@@ -1,50 +1,59 @@
-# Python
-__pycache__/
+# Git相关
+.git
+.gitignore
+.gitattributes
+
+# Python相关
+__pycache__
 *.py[cod]
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
-build/
+*.egg-info
+dist
+build
+*.egg
 
-# Virtual Environment
-venv/
-env/
+# 虚拟环境
+venv
+env
+ENV
 .venv
 
-# IDE
-.vscode/
-.idea/
+# IDE相关
+.vscode
+.idea
 *.swp
 *.swo
+*~
+.DS_Store
 
-# Git
-.git/
-.gitignore
-
-# Logs
-logs/
-*.log
-
-# Config (will be mounted)
+# 配置文件（敏感信息）
 config/config.yaml
 .env
 
-# Docker
+# 日志文件
+logs
+*.log
+
+# 测试文件
+test_*.py
+tests/
+*.pytest_cache
+
+# 文档
+*.md
+!README.md
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 工具脚本（不需要打包到镜像）
+tools/
+
+# Docker相关
 Dockerfile
 docker-compose.yml
 .dockerignore
-
-# Documentation
-README.md
-readme.md
-*.md
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Playwright
-.playwright/
-
