@@ -254,6 +254,16 @@ class LLMAnalyzer:
                 # 构建提示词
                 user_prompt = self._build_user_prompt(book_title, author, None, search_result)
                 
+                # 记录LLM请求参数
+                logger.info("=" * 60)
+                logger.info("LLM分析请求参数:")
+                logger.info(f"  模型: {self.config.model}")
+                logger.info(f"  温度: {self.config.temperature}")
+                logger.info(f"  最大tokens: {self.config.max_tokens}")
+                logger.info(f"System Prompt (前200字): {self.SYSTEM_PROMPT[:200]}...")
+                logger.info(f"User Prompt:\n{user_prompt}")
+                logger.info("=" * 60)
+                
                 # 调用LLM
                 response = self.client.chat.completions.create(
                     model=self.config.model,
@@ -268,7 +278,15 @@ class LLMAnalyzer:
                 
                 # 获取响应文本
                 response_text = response.choices[0].message.content
-                logger.debug(f"LLM响应: {response_text}")
+                
+                # 记录完整的LLM响应
+                logger.info("=" * 60)
+                logger.info("LLM分析响应:")
+                logger.info(f"  模型: {response.model}")
+                logger.info(f"  完成原因: {response.choices[0].finish_reason}")
+                logger.info(f"  用量统计: prompt_tokens={response.usage.prompt_tokens}, completion_tokens={response.usage.completion_tokens}, total_tokens={response.usage.total_tokens}")
+                logger.info(f"响应内容:\n{response_text}")
+                logger.info("=" * 60)
                 
                 # 解析响应
                 parsed_result = self._parse_llm_response(response_text)
@@ -372,6 +390,16 @@ class LLMAnalyzer:
                 # 构建提示词
                 user_prompt = self._build_keywords_prompt(book_title, author)
                 
+                # 记录LLM请求参数
+                logger.info("=" * 60)
+                logger.info("LLM关键词生成请求参数:")
+                logger.info(f"  模型: {self.config.model}")
+                logger.info(f"  温度: {self.config.temperature}")
+                logger.info(f"  最大tokens: 1000")
+                logger.info(f"System Prompt (前200字): {self.SEARCH_KEYWORDS_SYSTEM_PROMPT[:200]}...")
+                logger.info(f"User Prompt:\n{user_prompt}")
+                logger.info("=" * 60)
+                
                 # 调用LLM
                 response = self.client.chat.completions.create(
                     model=self.config.model,
@@ -385,7 +413,15 @@ class LLMAnalyzer:
                 
                 # 解析响应
                 result_text = response.choices[0].message.content.strip()
-                logger.debug(f"LLM关键词生成响应: {result_text[:200]}...")
+                
+                # 记录完整的LLM响应
+                logger.info("=" * 60)
+                logger.info("LLM关键词生成响应:")
+                logger.info(f"  模型: {response.model}")
+                logger.info(f"  完成原因: {response.choices[0].finish_reason}")
+                logger.info(f"  用量统计: prompt_tokens={response.usage.prompt_tokens}, completion_tokens={response.usage.completion_tokens}, total_tokens={response.usage.total_tokens}")
+                logger.info(f"响应内容:\n{result_text}")
+                logger.info("=" * 60)
                 
                 # 解析JSON结果
                 result = self._parse_keywords_response(result_text, book_title)
