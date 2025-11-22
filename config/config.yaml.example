@@ -1,0 +1,40 @@
+# Notion配置
+notion:
+  api_token: "your_notion_api_token_here"
+  database_id: "your_database_id_here"
+
+# LLM配置（OpenAI兼容API）
+llm:
+  base_url: "https://cloud.infini-ai.com/maas"
+  api_key: "sk-xxx"
+  model: "claude-sonnet-4-5-20250929"
+  temperature: 0.3
+  max_tokens: 2000
+
+# 微信读书爬虫配置
+crawler:
+  headless: true
+  timeout: 30000
+  max_retries: 3
+  delay_min: 1.0
+  delay_max: 3.0
+
+# 通知配置
+notification:
+  wecom_webhook: ""  # 企业微信Webhook URL（可选）
+  feishu_webhook: ""  # 飞书Webhook URL（可选）
+  enabled_channels: ["wecom", "feishu"]  # 启用的通知渠道
+
+# 调度配置
+scheduler:
+  enabled: true
+  cron: "0 9 * * *"  # 每天9点运行，使用cron表达式
+  timezone: "Asia/Shanghai"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>"
+  rotation: "10 MB"
+  retention: "30 days"
+

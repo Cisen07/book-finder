@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  book-finder-scheduler:
+    build: .
+    container_name: book-finder-scheduler
+    restart: unless-stopped
+    command: python scheduler.py
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    environment:
+      - TZ=Asia/Shanghai
+      # 也可以直接在这里设置环境变量（会覆盖.env文件）
+      # - NOTION_API_TOKEN=your_token
+      # - NOTION_DATABASE_ID=your_db_id
+      # - LLM_BASE_URL=https://cloud.infini-ai.com/maas
+      # - LLM_API_KEY=sk-xxx
+      # - LLM_MODEL=claude-sonnet-4-5-20250929
+    networks:
+      - book-finder-network
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 手动运行模式（按需启动）
+  book-finder-manual:
+    build: .
+    container_name: book-finder-manual
+    command: python run.py
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - book-finder-network
+    profiles:
+      - manual
+
+networks:
+  book-finder-network:
+    driver: bridge
+
