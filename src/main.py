@@ -116,9 +116,17 @@ class BookFinderApp:
             logger.info(f"[{i}/{len(books)}] 搜索: {book.title}")
             
             try:
-                result = api_client.search_book(
+                # 先用LLM生成优化的搜索关键词
+                keywords_result = self.llm_analyzer.generate_search_keywords(
                     book_title=book.title,
                     author=book.author
+                )
+                
+                # 使用生成的关键词进行搜索
+                result = api_client.search_book(
+                    book_title=book.title,
+                    author=book.author,
+                    custom_keywords=keywords_result.keywords
                 )
                 search_results.append(result)
                 

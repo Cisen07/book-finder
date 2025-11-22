@@ -11,6 +11,29 @@ from .config import LLMConfig
 from .weread_api import WeReadSearchResult
 
 
+class SearchKeywordsResult:
+    """搜索关键词生成结果"""
+    
+    def __init__(
+        self,
+        book_title: str,
+        keywords: List[str],
+        corrected_title: Optional[str] = None,
+        corrected_author: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        error: Optional[str] = None
+    ):
+        self.book_title = book_title
+        self.keywords = keywords
+        self.corrected_title = corrected_title
+        self.corrected_author = corrected_author
+        self.reasoning = reasoning
+        self.error = error
+    
+    def __repr__(self):
+        return f"SearchKeywordsResult(title={self.book_title}, keywords={self.keywords})"
+
+
 class BookAnalysisResult:
     """书籍分析结果"""
     
@@ -36,6 +59,26 @@ class BookAnalysisResult:
 
     def __repr__(self):
         return f"BookAnalysisResult(title={self.book_title}, available={self.is_available}, confidence={self.confidence})"
+
+
+class SearchKeywordsResult:
+    """搜索关键词生成结果"""
+    
+    def __init__(
+        self,
+        book_title: str,
+        keywords: List[str],
+        corrected_title: Optional[str] = None,
+        corrected_author: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        error: Optional[str] = None
+    ):
+        self.book_title = book_title
+        self.keywords = keywords
+        self.corrected_title = corrected_title
+        self.corrected_author = corrected_author
+        self.reasoning = reasoning
+        self.error = error
 
 
 class LLMAnalyzer:
@@ -84,6 +127,16 @@ class LLMAnalyzer:
     "recommended_keywords": ["林登约翰逊传", "罗伯特卡洛"]
 }
 """
+    
+    SEARCH_KEYWORDS_SYSTEM_PROMPT = """你是一个专业的图书搜索助手。你的任务是根据用户提供的书名和作者信息，生成最优的搜索关键词列表，用于在微信读书平台搜索书籍。
+
+你需要考虑：
+1. 可能的错别字或拼写错误
+2. 书名的不同表述方式（简称、全称、副标题等）
+3. 作者名字的不同写法（中文、英文、简称、全称等）
+4. 关键词组合的多样性（书名单独、书名+作者、关键词等）
+
+请生成3-5个最有可能找到该书籍的搜索关键词，按优先级排序。"""
     
     def __init__(self, config: LLMConfig):
         self.config = config
@@ -283,10 +336,185 @@ class LLMAnalyzer:
             result = self.analyze_search_result(
                 book_title=book.get('title', ''),
                 search_result=search_result,
-                author=book.get('author'),
-                title_en=book.get('title_en')
+                author=book.get('author')
             )
             results.append(result)
         
         return results
+    
+    def generate_search_keywords(
+        self,
+        book_title: str,
+        author: Optional[str] = None,
+        max_retries: int = 3
+    ) -> 'SearchKeywordsResult':
+        """
+        使用LLM生成优化的搜索关键词
+        
+        Args:
+            book_title: 书名
+            author: 作者
+            max_retries: 最大重试次数
+        
+        Returns:
+            搜索关键词结果
+        """
+        logger.info(f"生成搜索关键词: {book_title} (作者: {author or '未知'})")
+        
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                if retry_count > 0:
+                    logger.info(f"重试生成搜索关键词 (尝试 {retry_count + 1}/{max_retries})")
+                
+                # 构建提示词
+                user_prompt = self._build_keywords_prompt(book_title, author)
+                
+                # 调用LLM
+                response = self.client.chat.completions.create(
+                    model=self.config.model,
+                    messages=[
+                        {"role": "system", "content": self.SEARCH_KEYWORDS_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=self.config.temperature,
+                    max_tokens=1000
+                )
+                
+                # 解析响应
+                result_text = response.choices[0].message.content.strip()
+                logger.debug(f"LLM关键词生成响应: {result_text[:200]}...")
+                
+                # 解析JSON结果
+                result = self._parse_keywords_response(result_text, book_title)
+                
+                logger.info(f"✓ 成功生成 {len(result.keywords)} 个搜索关键词")
+                if result.corrected_title and result.corrected_title != book_title:
+                    logger.info(f"  书名纠正: {book_title} → {result.corrected_title}")
+                if result.corrected_author and result.corrected_author != author:
+                    logger.info(f"  作者纠正: {author} → {result.corrected_author}")
+                for i, kw in enumerate(result.keywords[:3], 1):
+                    logger.info(f"  关键词{i}: {kw}")
+                
+                return result
+            
+            except (APIError, APIConnectionError, RateLimitError, APITimeoutError) as e:
+                logger.error(f"LLM API错误: {e}")
+                last_error = str(e)
+                retry_count += 1
+                
+                if retry_count < max_retries:
+                    import time
+                    time.sleep(2 ** retry_count)
+            
+            except Exception as e:
+                logger.error(f"生成关键词失败: {e}")
+                last_error = str(e)
+                retry_count += 1
+                
+                if retry_count < max_retries:
+                    import time
+                    time.sleep(1)
+        
+        # 所有重试都失败，返回默认关键词
+        logger.warning(f"LLM生成关键词失败，使用默认关键词")
+        default_keywords = [book_title]
+        if author:
+            default_keywords.append(f"{book_title} {author}")
+        
+        return SearchKeywordsResult(
+            book_title=book_title,
+            keywords=default_keywords,
+            error=f"LLM生成失败，使用默认关键词: {last_error}"
+        )
+    
+    def _build_keywords_prompt(self, book_title: str, author: Optional[str] = None) -> str:
+        """构建关键词生成提示词"""
+        prompt = f"""请为以下书籍生成最优的搜索关键词列表：
+
+书名：{book_title}"""
+        
+        if author:
+            prompt += f"\n作者：{author}"
+        
+        prompt += """
+
+请分析书名和作者信息，考虑可能的错别字、不同表述方式，生成3-5个最优搜索关键词。
+
+请返回JSON格式的结果，包含以下字段：
+- corrected_title: 纠正后的书名（如果原书名有错别字或不规范的地方，否则与原书名相同）
+- corrected_author: 纠正后的作者名（如果有，否则null）
+- keywords: 搜索关键词列表（3-5个，按优先级从高到低排序）
+- reasoning: 生成这些关键词的理由（简短说明）
+
+示例1（书名准确）：
+```json
+{
+  "corrected_title": "人类简史：从动物到上帝",
+  "corrected_author": "尤瓦尔·赫拉利",
+  "keywords": [
+    "人类简史",
+    "人类简史 尤瓦尔·赫拉利",
+    "Sapiens",
+    "从动物到上帝",
+    "人类简史 赫拉利"
+  ],
+  "reasoning": "使用书名全称和简称，结合作者名的不同写法，及英文名增加搜索覆盖"
+}
+```
+
+示例2（可能有错别字）：
+```json
+{
+  "corrected_title": "林登·约翰逊传",
+  "corrected_author": "罗伯特·卡罗",
+  "keywords": [
+    "林登约翰逊传",
+    "林登·约翰逊传",
+    "约翰逊传记",
+    "罗伯特卡罗 约翰逊",
+    "LBJ传"
+  ],
+  "reasoning": "使用有无间隔号的不同写法，简称LBJ，结合作者名"
+}
+```
+
+请直接返回JSON，不要包含其他文字。"""
+        
+        return prompt
+    
+    def _parse_keywords_response(self, response_text: str, book_title: str) -> 'SearchKeywordsResult':
+        """解析LLM的关键词生成响应"""
+        try:
+            # 尝试直接解析JSON
+            result_dict = self._parse_llm_response(response_text)
+            
+            # 提取字段
+            keywords = result_dict.get("keywords", [])
+            if not keywords or not isinstance(keywords, list):
+                # 如果没有关键词或格式不对，使用原书名
+                keywords = [book_title]
+            
+            corrected_title = result_dict.get("corrected_title")
+            corrected_author = result_dict.get("corrected_author")
+            reasoning = result_dict.get("reasoning")
+            
+            return SearchKeywordsResult(
+                book_title=book_title,
+                keywords=keywords,
+                corrected_title=corrected_title,
+                corrected_author=corrected_author,
+                reasoning=reasoning
+            )
+        
+        except Exception as e:
+            logger.error(f"解析关键词响应失败: {e}")
+            # 返回默认关键词
+            return SearchKeywordsResult(
+                book_title=book_title,
+                keywords=[book_title],
+                error=f"解析失败: {str(e)}"
+            )
 

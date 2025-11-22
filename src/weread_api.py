@@ -59,7 +59,8 @@ class WeReadAPIClient:
     def search_book(
         self,
         book_title: str,
-        author: Optional[str] = None
+        author: Optional[str] = None,
+        custom_keywords: Optional[List[str]] = None
     ) -> WeReadSearchResult:
         """
         搜索书籍
@@ -67,14 +68,19 @@ class WeReadAPIClient:
         Args:
             book_title: 书名
             author: 作者
+            custom_keywords: 自定义搜索关键词列表（如果提供，将优先使用）
         
         Returns:
             搜索结果
         """
-        # 构建搜索关键词列表
-        search_keywords = [book_title]
-        if author:
-            search_keywords.append(f"{book_title} {author}")
+        # 使用自定义关键词或构建默认关键词列表
+        if custom_keywords:
+            search_keywords = custom_keywords
+            logger.info(f"使用LLM生成的 {len(custom_keywords)} 个关键词搜索")
+        else:
+            search_keywords = [book_title]
+            if author:
+                search_keywords.append(f"{book_title} {author}")
         
         last_error = None
         
