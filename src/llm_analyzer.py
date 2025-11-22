@@ -8,7 +8,7 @@ from openai import OpenAI
 from openai import APIError, APIConnectionError, RateLimitError, APITimeoutError
 
 from .config import LLMConfig
-from .weread_crawler import WeReadSearchResult
+from .weread_api import WeReadSearchResult
 
 
 class BookAnalysisResult:
