@@ -144,7 +144,8 @@ class BookFinderApp:
                         book_title=book.title,
                         search_keyword=book.title,
                         found_books=[],
-                        error=str(e)
+                        error=str(e),
+                        attempted_keywords=[book.title]
                     )
                 )
             
@@ -217,10 +218,13 @@ class BookFinderApp:
                 elif analysis_result.error:
                     notes = f"错误: {analysis_result.error}"
                 
+                # 使用所有尝试过的关键词，用逗号分隔
+                all_keywords = ", ".join(search_result.attempted_keywords)
+                
                 success = self.notion_client.update_book_status(
                     page_id=book.page_id,
                     available=analysis_result.is_available,
-                    search_keywords=search_result.search_keyword,
+                    search_keywords=all_keywords,
                     notes=notes
                 )
                 

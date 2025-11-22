@@ -74,9 +74,9 @@ def start_scheduler():
     print("=" * 60)
     print(f"调度表达式: {config.scheduler.cron}")
     print(f"时区: {config.scheduler.timezone}")
-    print(f"下次运行时间: {scheduler.get_job('book_finder_task').next_run_time}")
     print("=" * 60)
     print("调度器已启动，按Ctrl+C停止...")
+    print("提示：首次运行将在下个整点触发")
     print()
     
     logger.info(f"调度器已启动，cron表达式: {config.scheduler.cron}")

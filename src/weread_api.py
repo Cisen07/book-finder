@@ -20,10 +20,12 @@ class WeReadSearchResult:
         search_keyword: str,
         found_books: List[Dict[str, str]],
         total_count: int = 0,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        attempted_keywords: Optional[List[str]] = None
     ):
         self.book_title = book_title
-        self.search_keyword = search_keyword
+        self.search_keyword = search_keyword  # 成功的关键词
+        self.attempted_keywords = attempted_keywords or [search_keyword]  # 所有尝试过的关键词
         self.found_books = found_books
         self.total_count = total_count
         self.error = error
@@ -33,7 +35,7 @@ class WeReadSearchResult:
         self.page_url = ""
 
     def __repr__(self):
-        return f"WeReadSearchResult(keyword={self.search_keyword}, results={len(self.found_books)}, has_error={self.error is not None})"
+        return f"WeReadSearchResult(keyword={self.search_keyword}, attempted={len(self.attempted_keywords)}, results={len(self.found_books)}, has_error={self.error is not None})"
 
 
 class WeReadAPIClient:
@@ -83,9 +85,11 @@ class WeReadAPIClient:
                 search_keywords.append(f"{book_title} {author}")
         
         last_error = None
+        attempted_keywords = []  # 记录所有尝试过的关键词
         
         # 尝试不同的关键词
         for keyword in search_keywords:
+            attempted_keywords.append(keyword)  # 记录尝试的关键词
             retry_count = 0
             
             while retry_count < self.config.max_retries:
@@ -149,11 +153,13 @@ class WeReadAPIClient:
                         # 如果找到结果，直接返回
                         if found_books:
                             logger.info(f"使用关键词 '{keyword}' 找到 {len(found_books)} 个结果")
+                            logger.info(f"共尝试了 {len(attempted_keywords)} 个关键词: {', '.join(attempted_keywords)}")
                             return WeReadSearchResult(
                                 book_title=book_title,
                                 search_keyword=keyword,
                                 found_books=found_books,
-                                total_count=total_count
+                                total_count=total_count,
+                                attempted_keywords=attempted_keywords
                             )
                         
                         # 如果没有找到结果，尝试下一个关键词
@@ -186,10 +192,12 @@ class WeReadAPIClient:
         
         # 所有关键词都尝试失败
         logger.error(f"所有搜索关键词都失败: {book_title}")
+        logger.info(f"共尝试了 {len(attempted_keywords)} 个关键词: {', '.join(attempted_keywords)}")
         return WeReadSearchResult(
             book_title=book_title,
             search_keyword=search_keywords[0],
             found_books=[],
-            error=last_error or "未找到搜索结果"
+            error=last_error or "未找到搜索结果",
+            attempted_keywords=attempted_keywords
         )
 
